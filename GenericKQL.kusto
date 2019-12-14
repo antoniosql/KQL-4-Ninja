@@ -18,70 +18,46 @@ RunProcesses
 
 Update
 //Computers Missing Updates last week and still missing it.
-
 let lastDayComputersMissingUpdates = Update
-
 | where TimeGenerated between (ago(3d)..ago(2d))
-
 | where Classification == “Critical Updates” and UpdateState != “Not needed” and UpdateState != “DontNeed”
-
 | summarize makeset(Computer);
 
 Update
-
 | where TimeGenerated > ago(1d)
-
 | where Classification == “Critical Updates” and UpdateState != “Not needed” and UpdateState != “DontNeed”
-
 | where Computer in (lastDayComputersMissingUpdates)
-
 | summarize UniqueUpdatesCount = dcount(Product) by Computer, OSType
 
- 
-
 //Security updates:
-
 //Needed Security Updates & Critical Updates by Computer
 
 Update
-
 | where OSType != “Linux” and UpdateState == “Needed” and Optional == “false” and (Classification == “Security Updates” or Classification == “Critical Updates”)
-
 | summarize UniqueUpdatesCount = count(), makeset(Title), makeset(KBID) by Computer
 
- 
-
-//Security updates:
+/Security updates
 
 //List of Computers missing updates and also detected high severity security dections
 
 Update
-
 | where TimeGenerated >= ago(10d)
-
 | where UpdateState == “Needed”
-
 | summarize UpdatesNeeded=makeset(Title), Updates=dcount(Title) by Computer
 
 | join kind= innerunique
-
 (
 
 SecurityDetection
-
 | where TimeGenerated >= ago(10d)
-
 | where AlertSeverity == “High”
-
 | summarize SecurityAlerts=makeset(AlertTitle), HighAlertsCount=count() by Computer
-
 )
 
 on Computer
 
 | project-away Computer
 
- 
 
 Event Log
 //find which accounts failed to logon on computers where we identify a security detection
