@@ -1,0 +1,44 @@
+let data = SigninLogs
+|where AppDisplayName in ('Office 365 Exchange Online') or '*' in ('Office 365 Exchange Online')
+|where UserDisplayName in ('*') or '*' in ('*')
+|extend errorCode = toint(Status.errorCode)
+|extend SigninStatus = case(errorCode == 0, "Success",                         errorCode == 50058, "Interrupt",                         errorCode == 50140, "Interrupt",                         errorCode == 51006, "Interrupt",                         errorCode == 50059, "Interrupt",                         errorCode == 65001, "Interrupt",                         errorCode == 52004, "Interrupt",                         errorCode == 50055, "Interrupt",                         errorCode == 50144, "Interrupt",                         errorCode == 50072, "Interrupt",                         errorCode == 50074, "Interrupt",                         errorCode == 16000, "Interrupt",                         errorCode == 16001, "Interrupt",                         errorCode == 16003, "Interrupt",                         errorCode == 50127, "Interrupt",                         errorCode == 50125, "Interrupt",                         errorCode == 50129, "Interrupt",                         errorCode == 50143, "Interrupt",                         errorCode == 81010, "Interrupt",                         errorCode == 81014, "Interrupt",                         errorCode == 81012 ,"Interrupt",                         "Failure")
+| where SigninStatus == '*' or '*' == '*' or '*' == 'All Sign-ins'
+|extend Reason = tostring(Status.failureReason)
+|extend ClientAppUsed = iff(isempty(ClientAppUsed)==true,"Unknown" ,ClientAppUsed)
+|extend isLegacyAuth = case(ClientAppUsed contains "Browser", "No", ClientAppUsed contains "Mobile Apps and Desktop clients", "No", ClientAppUsed contains "Exchange ActiveSync", "No", ClientAppUsed contains "Unknown", "Unknown", "Yes")
+|where isLegacyAuth=="Yes"
+| where AppDisplayName in ('*') or '*' in ('*');
+let caData = data
+| summarize TotalCount = count(), SuccessCount = countif(SigninStatus == "Success"), FailureCount = countif(SigninStatus == "Failure"), UserInterruptedCount = countif(SigninStatus == "Interrupted") by AppDisplayName
+| join kind=inner
+(
+    data
+    | make-series Trend = count() default = 0 on TimeGenerated in range(ago(14d), now(), 6h) by  AppDisplayName
+    | project-away TimeGenerated
+)
+on AppDisplayName
+| project AppDisplayName, TotalCount, SuccessCount,FailureCount,UserInterruptedCount,  Trend
+| order by TotalCount desc, AppDisplayName asc
+| extend Id = AppDisplayName;
+data
+| summarize TotalCount = count(), SuccessCount = countif(SigninStatus == "Success"), FailureCount = countif(SigninStatus == "Failure"), UserInterruptedCount = countif(SigninStatus == "Interrupted") by AppDisplayName, ClientAppUsed
+| join kind=inner
+(
+    data
+    | make-series Trend = count() default = 0 on TimeGenerated in range(ago(14d), now(), 6h) by AppDisplayName, ClientAppUsed
+    | project-away TimeGenerated
+)
+on AppDisplayName, ClientAppUsed
+| order by TotalCount desc, AppDisplayName asc
+| project AppDisplayName, ClientAppUsed,TotalCount, SuccessCount,FailureCount,UserInterruptedCount,  Trend
+| serialize Id = strcat(AppDisplayName, '/', ClientAppUsed)
+| join kind=inner
+(
+    caData
+)
+on AppDisplayName
+| project Id, Name = ClientAppUsed , Type = 'Protocol', ['Sign-in Count'] = TotalCount, Trend, ['Failure Count'] = FailureCount, ['User Interrupted Count'] = UserInterruptedCount, ParentId = Id1
+| union (caData
+| project Id, Name = AppDisplayName, Type = 'App', ['Sign-in Count'] = TotalCount, Trend, ['Failure Count'] = FailureCount, ['User Interrupted Count'] = UserInterruptedCount, ParentId = '')
+| order by ['Sign-in Count'] desc, Name asc
