@@ -1,4 +1,5 @@
-/ Advanced Queries from Azure Log Analytics
+// Advanced Queries for Azure Log Analytics, Azure Monitor and Microsoft Security
+
 // Find all processes that started in the last 10 days with id 4688:A new process has been created.
 let RunProcesses = SecurityEvent
 | where TimeGenerated > ago(10d)
