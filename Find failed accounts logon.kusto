@@ -1,0 +1,8 @@
+// Find failed accounts logon on device with security detection
+
+let detections = toscalar(SecurityDetection
+| summarize makeset(Computer));
+
+SecurityEvent
+| where Computer in (detections) and EventID == 4624
+| summarize count() by Account
