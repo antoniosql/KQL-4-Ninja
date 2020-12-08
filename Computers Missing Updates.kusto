@@ -1,0 +1,12 @@
+// Computers Missing Updates last days 
+
+let lastDayComputersMissingUpdates = Update
+| where TimeGenerated between (ago(3d)..ago(2d))
+| where Classification == "Critical Updates" and UpdateState != "Not needed" and UpdateState != "NotNeeded"
+| summarize makeset(Computer);
+
+Update
+| where TimeGenerated > ago(1d)
+| where Classification == "Critical Updates" and UpdateState != "Not needed" and UpdateState != "NotNeeded"
+| where Computer in (lastDayComputersMissingUpdates)
+| summarize UniqueUpdatesCount = dcount(Product) by Computer, OSType
