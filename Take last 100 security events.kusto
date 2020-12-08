@@ -1,0 +1,7 @@
+// Take last 100 security events 
+
+SecurityEvent
+| project Activity
+| extend activityArr=split(Activity, " – ")
+| project Activity , activityArr, activityId=activityArr[0]
+| take 100
